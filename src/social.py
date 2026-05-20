@@ -1,18 +1,46 @@
 import requests
+import json
 
 def searchWithUsername(username: str):
     username = username.lstrip("@")
     result = {"data":[], "error":None}
 
     SOCIAL_NETWORKS = {
-        "GitHub":           f"https://api.github.com/users/{username}",
-        "Reddit":           f"https://www.reddit.com/user/{username}/about.json",
-        "GitLab":           f"https://gitlab.com/api/v4/users?username={username}",
-        "StackOverflow":    f"https://api.stackexchange.com/2.3/users?inname={username}&site=stackoverflow",
-        "Bitbucket":        f"https://api.bitbucket.org/2.0/users/{username}",
-        "YouTube"   :       f"https://www.youtube.com/user/{username}",
-        "Instagram":        f"https://www.instagram.com/{username}/",
-        "TikTok":           f"https://www.tiktok.com/@{username}"
+        "GitHub": {
+            "type": "api",
+            "url": f"https://api.github.com/users/{username}",
+            "confirmedStatus": True
+        },
+        "Reddit": {
+            "type": "api",
+            "url": f"https://www.reddit.com/user/{username}/about.json",
+            "confirmedStatus": True
+        },
+        "GitLab": {
+            "type": "api",
+            "url": f"https://gitlab.com/api/v4/users?username={username}",
+            "confirmedStatus": False
+        },
+        "StackOverflow": {
+            "type": "api",
+            "url": f"https://api.stackexchange.com/2.3/users?inname={username}&site=stackoverflow",
+            "confirmedStatus": False
+        },
+        "YouTube": {
+            "type": "api",
+            "url": f"https://www.youtube.com/@{username}",
+            "confirmedStatus": True
+        },
+        "TikTok": {
+            "type": "api",
+            "url" : f"https://www.tikvib.com/profile/{username}",
+            "confirmedStatus": True
+        },
+        "Twitter": {
+            "type": "api",
+            "url": f"https://nitter.net/{username}",
+            "confirmedStatus": True
+        }
     }
 
     HEADERS = {
@@ -27,19 +55,28 @@ def searchWithUsername(username: str):
 
     POSITIVE_STATUS = {200, 301, 302}
 
-    for platform, url in SOCIAL_NETWORKS.items():
-        response = requests.get(url=url, headers=HEADERS, allow_redirects=True, timeout=5)
-        if response.status_code in POSITIVE_STATUS:
-            body = response.json()
-            print(f"{platform}     {body}")
-            if platform == "GitLab":
-                if len(body) > 0 : 
-                    exist = "yes" 
+    for platform, obj in SOCIAL_NETWORKS.items():
+        url = obj["url"]
+        isConfirmed = obj["confirmedStatus"]
+        response = requests.get(url, allow_redirects=True, timeout=2, headers=HEADERS)
+        if response.status_code in POSITIVE_STATUS and isConfirmed:
+            result["data"].append(f"{platform} : yes")
+        elif response.status_code in POSITIVE_STATUS:
+            try:    
+                body = response.json()
+                if platform == "GitLab":
+                    result["data"].append(f"{platform} : {'yes' if Gitlab(body) else 'no'}")
                 else:
-                    exist = "no"
-            else: 
-                exist = "yes"
+                    result["data"].append(f"{platform} : {'yes' if StackOverFlow(body) else 'no'}")
+            except json.decoder.JSONDecodeError:
+                result["data"].append(f"{platform} : no")
         else:
-            exist = "no"            
-        result["data"].append(f"{platform} : {exist}")
-    print(result["data"])
+            result["data"].append(f"{platform} : no")
+    return result
+
+
+def Gitlab(body):
+    return len(body) > 0
+
+def StackOverFlow(body):
+    return len(body["items"]) > 0
